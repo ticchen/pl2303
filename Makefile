@@ -39,7 +39,7 @@ dkms_remove:
 	sudo rm -rf /usr/src/$(PACKAGE_NAME)-$(PACKAGE_VERSION)
 
 dkms_install_driver:
-	#sudo dkms build -m pl2303/1.0
+	#sudo dkms build -m $(PACKAGE_NAME) -v $(PACKAGE_VERSION)
 	sudo dkms install -m $(PACKAGE_NAME) -v $(PACKAGE_VERSION)
 
 dkms_uninstall_driver:
