@@ -304,6 +304,7 @@ static int pl2303_probe(struct usb_serial *serial,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
 /*
  * Use interrupt endpoint from first interface if available.
  *
@@ -359,6 +360,7 @@ static int pl2303_calc_num_ports(struct usb_serial *serial,
 
 	return 1;
 }
+#endif
 
 static int pl2303_startup(struct usb_serial *serial)
 {
@@ -1149,9 +1151,13 @@ static struct usb_serial_driver pl2303_device = {
 		.name =		"pl2303",
 	},
 	.id_table =		id_table,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
 	.num_bulk_in =		1,
 	.num_bulk_out =		1,
 	.num_interrupt_in =	0,	/* see pl2303_calc_num_ports */
+#else
+	.num_ports =		1,
+#endif
 	.bulk_in_size =		256,
 	.bulk_out_size =	256,
 	.open =			pl2303_open,
@@ -1171,7 +1177,9 @@ static struct usb_serial_driver pl2303_device = {
 	.process_read_urb =	pl2303_process_read_urb,
 	.read_int_callback =	pl2303_read_int_callback,
 	.probe =		pl2303_probe,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
 	.calc_num_ports =	pl2303_calc_num_ports,
+#endif
 	.attach =		pl2303_startup,
 	.release =		pl2303_release,
 	.port_probe =		pl2303_port_probe,
