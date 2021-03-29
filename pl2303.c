@@ -183,6 +183,7 @@ struct pl2303_type_data {
 	speed_t max_baud_rate;
 	unsigned long quirks;
 	unsigned int no_autoxonxoff:1;
+	unsigned int no_divisors:1;
 };
 
 struct pl2303_serial_private {
@@ -209,6 +210,7 @@ static const struct pl2303_type_data pl2303_type_data[TYPE_COUNT] = {
 	},
 	[TYPE_HXN] = {
 		.max_baud_rate		= 12000000,
+		.no_divisors		= true,
 	},
 };
 
@@ -450,6 +452,15 @@ static int pl2303_port_probe(struct usb_serial_port *port)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+static void pl2303_port_remove(struct usb_serial_port *port)
+{
+	struct pl2303_private *priv = usb_get_serial_port_data(port);
+
+	kfree(priv);
+}
+
+#else
 static int pl2303_port_remove(struct usb_serial_port *port)
 {
 	struct pl2303_private *priv = usb_get_serial_port_data(port);
@@ -458,6 +469,7 @@ static int pl2303_port_remove(struct usb_serial_port *port)
 
 	return 0;
 }
+#endif
 
 static int pl2303_set_control_lines(struct usb_serial_port *port, u8 value)
 {
@@ -573,8 +585,12 @@ static void pl2303_encode_baud_rate(struct tty_struct *tty,
 		baud = min_t(speed_t, baud, spriv->type->max_baud_rate);
 	/*
 	 * Use direct method for supported baud rates, otherwise use divisors.
+	 * Newer chip types do not support divisor encoding.
 	 */
-	baud_sup = pl2303_get_supported_baud_rate(baud);
+	if (spriv->type->no_divisors)
+		baud_sup = baud;
+	else
+		baud_sup = pl2303_get_supported_baud_rate(baud);
 
 	if (baud == baud_sup)
 		baud = pl2303_encode_baud_rate_direct(buf, baud);
@@ -1132,7 +1148,7 @@ static void pl2303_process_read_urb(struct urb *urb)
 	if (line_status & UART_OVERRUN_ERROR)
 		tty_insert_flip_char(&port->port, 0, TTY_OVERRUN);
 
-	if (port->port.console && port->sysrq) {
+	if (port->sysrq) {
 		for (i = 0; i < urb->actual_length; ++i)
 			if (!usb_serial_handle_sysrq_char(port, data[i]))
 				tty_insert_flip_char(&port->port, data[i],
